@@ -1,0 +1,33 @@
+composer create-project laravel/laravel rscb-management
+cd rscb-management
+
+
+# Authentication and UI
+composer require laravel/ui
+composer require laravel/socialite
+
+# Permissions and Roles
+composer require spatie/laravel-permission
+
+# Excel Import/Export
+composer require maatwebsite/excel
+
+# PDF Generation
+composer require barryvdh/laravel-dompdf
+
+# DataTables
+composer require yajra/laravel-datatables-oracle
+
+# Image Intervention
+composer require intervention/image
+
+# Activity Log
+composer require spatie/laravel-activitylog
+
+# Install Bootstrap UI
+php artisan ui bootstrap --auth
+npm install
+npm install bootstrap@5.3.0 @popperjs/core
+npm install sweetalert2 jquery datatables.net-bs5
+npm install chart.js
+npm run build
