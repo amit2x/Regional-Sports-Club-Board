@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Providers\RouteServiceProvider;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +11,8 @@ class RedirectIfAuthenticated
 {
     /**
      * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next, string ...$guards): Response
     {
@@ -19,9 +20,18 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
+
+                // Handle employee guard
                 if ($guard === 'employee') {
                     $employee = Auth::guard('employee')->user();
 
+                    // If force password change is required
+                    if ($employee->force_password_change) {
+                        return redirect()->route('employee.password.change')
+                            ->with('warning', 'Please change your password before continuing.');
+                    }
+
+                    // Redirect based on role
                     if ($employee->hasRole('super_admin')) {
                         return redirect()->route('admin.dashboard');
                     } elseif ($employee->hasRole('regional_sports_secretary')) {
@@ -33,6 +43,7 @@ class RedirectIfAuthenticated
                     }
                 }
 
+                // Default redirect for web guard
                 return redirect('/home');
             }
         }

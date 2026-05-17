@@ -65,15 +65,30 @@ Route::get('/verify-certificate', [CertificateController::class, 'verify'])->nam
 |--------------------------------------------------------------------------
 */
 Route::prefix('employee')->name('employee.')->group(function () {
-    Route::get('/login', [EmployeeAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [EmployeeAuthController::class, 'login']);
-    Route::post('/logout', [EmployeeAuthController::class, 'logout'])->name('logout');
-    Route::get('/change-password', [EmployeeAuthController::class, 'showChangePasswordForm'])->name('password.change');
-    Route::post('/change-password', [EmployeeAuthController::class, 'changePassword']);
-    Route::get('/forgot-password', [EmployeeAuthController::class, 'showForgotPasswordForm'])->name('password.request');
-    Route::post('/forgot-password', [EmployeeAuthController::class, 'sendResetLink'])->name('password.email');
-    Route::get('/auth/google', [EmployeeAuthController::class, 'redirectToGoogle'])->name('auth.google');
-    Route::get('/auth/google/callback', [EmployeeAuthController::class, 'handleGoogleCallback']);
+
+    // Login Routes (Redirect if already authenticated)
+    Route::middleware('guest:employee')->group(function () {
+        Route::get('/login', [EmployeeAuthController::class, 'showLoginForm'])->name('login');
+        Route::post('/login', [EmployeeAuthController::class, 'login']);
+
+        // Google OAuth
+        Route::get('/auth/google', [EmployeeAuthController::class, 'redirectToGoogle'])->name('auth.google');
+        Route::get('/auth/google/callback', [EmployeeAuthController::class, 'handleGoogleCallback']);
+
+        // Forgot Password
+        Route::get('/forgot-password', [EmployeeAuthController::class, 'showForgotPasswordForm'])->name('password.request');
+        Route::post('/forgot-password', [EmployeeAuthController::class, 'sendResetLink'])->name('password.email');
+    });
+
+    // Authenticated Routes
+    Route::middleware('auth:employee')->group(function () {
+        // Logout
+        Route::post('/logout', [EmployeeAuthController::class, 'logout'])->name('logout');
+
+        // Change Password
+        Route::get('/change-password', [EmployeeAuthController::class, 'showChangePasswordForm'])->name('password.change');
+        Route::post('/change-password', [EmployeeAuthController::class, 'changePassword']);
+    });
 });
 
 /*

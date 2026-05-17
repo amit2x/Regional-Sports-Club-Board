@@ -4,6 +4,7 @@ use App\Http\Middleware\CheckEmployeeStatus;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\ForcePasswordChange;
 use App\Http\Middleware\LogUserActivity;
+use App\Http\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         'role' => CheckRole::class,
         'force.password.change' => ForcePasswordChange::class,
         'check.employee.status' => CheckEmployeeStatus::class,
+        'guest' => RedirectIfAuthenticated::class,
         'log.activity' => LogUserActivity::class,
         'spatie_role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,

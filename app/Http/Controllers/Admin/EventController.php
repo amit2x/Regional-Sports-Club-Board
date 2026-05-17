@@ -10,6 +10,7 @@ use App\Models\Airport;
 use App\Services\EventEligibilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -20,7 +21,10 @@ class EventController extends Controller
     public function __construct(EventEligibilityService $eligibilityService)
     {
         $this->middleware('auth:employee');
-        $this->middleware('permission:view_events');
+        $this->middleware('permission:view_events')->only(['index', 'show']);
+        $this->middleware('permission:create_events')->only(['create', 'store']);
+        $this->middleware('permission:edit_events')->only(['edit', 'update']);
+        $this->middleware('permission:delete_events')->only('destroy');
         $this->eligibilityService = $eligibilityService;
     }
 
@@ -48,7 +52,8 @@ class EventController extends Controller
                         return '<img src="' . asset('storage/' . $event->banner_image) . '"
                                 alt="Banner" class="rounded" style="width: 80px; height: 50px; object-fit: cover;">';
                     }
-                    return '<span class="text-muted">No Banner</span>';
+                    return '<div class="bg-primary rounded d-flex align-items-center justify-content-center"
+                            style="width: 80px; height: 50px;"><i class="bi bi-calendar-event text-white"></i></div>';
                 })
                 ->addColumn('event_details', function ($event) {
                     return '<strong>' . $event->event_name . '</strong><br>
@@ -58,63 +63,45 @@ class EventController extends Controller
                 ->addColumn('dates', function ($event) {
                     return '<small><strong>Start:</strong> ' . $event->start_date->format('d M Y') . '<br>
                             <strong>End:</strong> ' . $event->end_date->format('d M Y') . '<br>
-                            <strong>Registration:</strong> ' . $event->registration_last_date->format('d M Y') . '</small>';
+                            <strong>Reg:</strong> ' . $event->registration_last_date->format('d M Y') . '</small>';
                 })
                 ->addColumn('type_badge', function ($event) {
-                    $colors = [
-                        'regional' => 'primary',
-                        'airport' => 'info',
-                        'inter_airport' => 'warning',
-                        'annual_meet' => 'success'
-                    ];
+                    $colors = ['regional' => 'primary', 'airport' => 'info', 'inter_airport' => 'warning', 'annual_meet' => 'success'];
                     $color = $colors[$event->event_type] ?? 'secondary';
-                    return '<span class="badge bg-' . $color . '">' .
-                           ucwords(str_replace('_', ' ', $event->event_type)) . '</span>';
+                    return '<span class="badge bg-' . $color . '">' . ucwords(str_replace('_', ' ', $event->event_type)) . '</span>';
                 })
                 ->addColumn('status_badge', function ($event) {
-                    $colors = [
-                        'draft' => 'secondary',
-                        'published' => 'success',
-                        'cancelled' => 'danger',
-                        'completed' => 'info'
-                    ];
+                    $colors = ['draft' => 'secondary', 'published' => 'success', 'cancelled' => 'danger', 'completed' => 'info'];
                     $color = $colors[$event->status] ?? 'secondary';
                     return '<span class="badge bg-' . $color . '">' . ucfirst($event->status) . '</span>';
                 })
                 ->addColumn('registrations_count', function ($event) {
                     $approved = $event->registrations()->where('status', 'approved')->count();
-                    $total = $event->registrations_count;
                     return '<span class="badge bg-success">' . $approved . '</span> / ' .
-                           ($event->max_participants ? '<span class="badge bg-info">' . $event->max_participants . '</span>' : 'Unlimited') .
-                           '<br><small class="text-muted">Total: ' . $total . '</small>';
+                           ($event->max_participants ? $event->max_participants : '∞') .
+                           '<br><small class="text-muted">Total: ' . $event->registrations_count . '</small>';
                 })
                 ->addColumn('action', function ($event) {
                     $actions = '<div class="btn-group">';
 
                     if (auth()->user()->can('view_event_participants')) {
                         $actions .= '<a href="' . route('admin.events.registrations', $event->id) . '"
-                                    class="btn btn-sm btn-info" title="View Registrations">
-                                    <i class="bi bi-people"></i></a>';
+                                    class="btn btn-sm btn-info" title="Registrations"><i class="bi bi-people"></i></a>';
                     }
 
                     if (auth()->user()->can('edit_events')) {
                         $actions .= '<a href="' . route('admin.events.edit', $event->id) . '"
-                                    class="btn btn-sm btn-primary" title="Edit">
-                                    <i class="bi bi-pencil"></i></a>';
+                                    class="btn btn-sm btn-primary" title="Edit"><i class="bi bi-pencil"></i></a>';
                     }
 
                     if (auth()->user()->can('publish_events') && $event->status === 'draft') {
                         $actions .= '<button class="btn btn-sm btn-success publish-event"
-                                    data-id="' . $event->id . '"
-                                    title="Publish Event">
-                                    <i class="bi bi-check-circle"></i></button>';
+                                    data-id="' . $event->id . '" title="Publish"><i class="bi bi-check-circle"></i></button>';
                     }
 
                     if (auth()->user()->can('delete_events')) {
                         $actions .= '<button class="btn btn-sm btn-danger delete-event"
-                                    data-id="' . $event->id . '"
-                                    title="Delete">
-                                    <i class="bi bi-trash"></i></button>';
+                                    data-id="' . $event->id . '" title="Delete"><i class="bi bi-trash"></i></button>';
                     }
 
                     $actions .= '</div>';
@@ -128,9 +115,7 @@ class EventController extends Controller
             'total' => Event::count(),
             'published' => Event::where('status', 'published')->count(),
             'upcoming' => Event::where('start_date', '>=', now())->count(),
-            'ongoing' => Event::where('start_date', '<=', now())
-                ->where('end_date', '>=', now())
-                ->count(),
+            'ongoing' => Event::where('start_date', '<=', now())->where('end_date', '>=', now())->count(),
             'completed' => Event::where('status', 'completed')->count(),
         ];
 
@@ -164,21 +149,16 @@ class EventController extends Controller
             'description' => 'nullable|string',
             'banner_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
             'venue' => 'required|string|max:255',
-            'region_id' => 'required_if:event_type,regional|exists:regions,id',
-            'airport_id' => 'required_if:event_type,airport,inter_airport|exists:airports,id',
+            'region_id' => 'nullable|exists:regions,id',
+            'airport_id' => 'nullable|exists:airports,id',
             'start_date' => 'required|date|after:now',
             'end_date' => 'required|date|after:start_date',
             'registration_last_date' => 'required|date|before:start_date',
             'event_type' => 'required|in:regional,airport,inter_airport,annual_meet',
             'participation_type' => 'required|in:team,individual,both',
             'max_participants' => 'nullable|integer|min:1',
-            'gender_eligibility' => 'required|in:male,female,other,all',
-            'min_age' => 'nullable|integer|min:18',
-            'max_age' => 'nullable|integer|gt:min_age',
-            'department_eligibility' => 'nullable|array',
+            'gender_eligibility' => 'required|in:male,female,all',
             'rules_regulations' => 'nullable|string',
-            'required_documents' => 'nullable|array',
-            'form_template_id' => 'nullable|exists:form_templates,id',
         ]);
 
         if ($validator->fails()) {
@@ -194,29 +174,14 @@ class EventController extends Controller
             $eventData['status'] = 'draft';
             $eventData['is_published'] = false;
 
-            // Set region for airport events
-            if ($request->event_type === 'airport' && $request->airport_id) {
-                $airport = Airport::find($request->airport_id);
-                $eventData['region_id'] = $airport->region_id;
-            }
-
             // Handle banner upload
             if ($request->hasFile('banner_image')) {
                 $eventData['banner_image'] = $request->file('banner_image')
                     ->store('event-banners', 'public');
             }
 
-            // Convert arrays to JSON
-            if ($request->has('department_eligibility')) {
-                $eventData['department_eligibility'] = $request->department_eligibility;
-            }
-            if ($request->has('required_documents')) {
-                $eventData['required_documents'] = $request->required_documents;
-            }
-
             $event = Event::create($eventData);
 
-            // Log activity
             activity()
                 ->performedOn($event)
                 ->causedBy(auth()->guard('employee')->user())
@@ -246,35 +211,134 @@ class EventController extends Controller
      */
     public function show($id)
     {
-        $event = Event::with([
-            'region',
-            'airport',
-            'creator',
-            'formTemplate',
-            'registrations' => function($query) {
-                $query->with(['employee', 'documents'])
-                      ->latest()
-                      ->take(20);
-            }
-        ])->findOrFail($id);
+        $event = Event::with(['region', 'airport', 'creator', 'formTemplate'])->findOrFail($id);
 
         $statistics = [
             'total_registrations' => $event->registrations()->count(),
             'approved' => $event->registrations()->where('status', 'approved')->count(),
             'pending' => $event->registrations()->where('status', 'pending')->count(),
             'rejected' => $event->registrations()->where('status', 'rejected')->count(),
-            'draft' => $event->registrations()->where('status', 'draft')->count(),
-            'documents_verified' => $event->registrations()->where('documents_verified', true)->count(),
         ];
 
-        // Gender distribution
-        $genderDistribution = $event->registrations()
-            ->join('employees', 'event_registrations.employee_id', '=', 'employees.id')
-            ->select('employees.gender', DB::raw('count(*) as total'))
-            ->groupBy('employees.gender')
-            ->get();
+        return view('admin.events.show', compact('event', 'statistics'));
+    }
 
-        return view('admin.events.show', compact('event', 'statistics', 'genderDistribution'));
+    /**
+     * Show the form for editing the specified event
+     */
+    public function edit($id)
+    {
+        $this->authorize('edit_events');
+
+        $event = Event::findOrFail($id);
+        $regions = Region::where('status', 'active')->get();
+        $airports = Airport::where('status', 'active')->get();
+        $formTemplates = FormTemplate::where('is_active', true)->get();
+
+        return view('admin.events.edit', compact('event', 'regions', 'airports', 'formTemplates'));
+    }
+
+    /**
+     * Update the specified event
+     */
+    public function update(Request $request, $id)
+    {
+        $this->authorize('edit_events');
+
+        $event = Event::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'event_name' => 'required|string|max:255',
+            'event_code' => 'required|string|unique:events,event_code,' . $event->id,
+            'description' => 'nullable|string',
+            'banner_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'venue' => 'required|string|max:255',
+            'region_id' => 'nullable|exists:regions,id',
+            'airport_id' => 'nullable|exists:airports,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'registration_last_date' => 'required|date|before:start_date',
+            'event_type' => 'required|in:regional,airport,inter_airport,annual_meet',
+            'participation_type' => 'required|in:team,individual,both',
+            'max_participants' => 'nullable|integer|min:1',
+            'gender_eligibility' => 'required|in:male,female,all',
+            'rules_regulations' => 'nullable|string',
+            'form_template_id' => 'nullable|exists:form_templates,id',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        DB::beginTransaction();
+        try {
+            $eventData = $request->except(['banner_image', '_token']);
+
+            // Handle banner upload
+            if ($request->hasFile('banner_image')) {
+                // Delete old banner
+                if ($event->banner_image) {
+                    Storage::disk('public')->delete($event->banner_image);
+                }
+                $eventData['banner_image'] = $request->file('banner_image')
+                    ->store('event-banners', 'public');
+            }
+
+            $event->update($eventData);
+
+            activity()
+                ->performedOn($event)
+                ->causedBy(auth()->guard('employee')->user())
+                ->log('updated event');
+
+            DB::commit();
+
+            return redirect()->route('admin.events.index')
+                ->with('success', 'Event updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()
+                ->with('error', 'Failed to update event: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Remove the specified event
+     */
+    public function destroy($id)
+    {
+        $this->authorize('delete_events');
+
+        $event = Event::findOrFail($id);
+
+        // Check if event has registrations
+        if ($event->registrations()->count() > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete event with existing registrations.'
+            ], 422);
+        }
+
+        // Delete banner
+        if ($event->banner_image) {
+            Storage::disk('public')->delete($event->banner_image);
+        }
+
+        $event->delete();
+
+        activity()
+            ->performedOn($event)
+            ->causedBy(auth()->guard('employee')->user())
+            ->log('deleted event');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Event deleted successfully.'
+        ]);
     }
 
     /**
@@ -293,21 +357,9 @@ class EventController extends Controller
             ], 422);
         }
 
-        // Validate event has required fields
-        if (!$event->form_template_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please add a registration form before publishing.'
-            ], 422);
-        }
-
         $event->status = 'published';
         $event->is_published = true;
         $event->save();
-
-        // Send notifications to eligible employees
-        $eligibleEmployees = $this->eligibilityService->getEligibleEmployees($event);
-        // Notification logic here
 
         activity()
             ->performedOn($event)
@@ -338,11 +390,6 @@ class EventController extends Controller
 
         $event->status = 'cancelled';
         $event->is_published = false;
-        $event->metadata = array_merge($event->metadata ?? [], [
-            'cancellation_reason' => $request->reason,
-            'cancelled_at' => now()->toDateTimeString(),
-            'cancelled_by' => auth()->guard('employee')->id()
-        ]);
         $event->save();
 
         activity()
@@ -354,5 +401,32 @@ class EventController extends Controller
             'success' => true,
             'message' => 'Event cancelled successfully.'
         ]);
+    }
+
+    /**
+     * View event registrations
+     */
+    public function registrations($id)
+    {
+        $event = Event::findOrFail($id);
+        $registrations = $event->registrations()->with('employee')->get();
+
+        if (request()->ajax() || request()->expectsJson()) {
+            return response()->json($registrations);
+        }
+
+        return view('admin.events.registrations', compact('event', 'registrations'));
+    }
+
+    /**
+     * Export event registrations
+     */
+    public function exportRegistrations($id)
+    {
+        $event = Event::findOrFail($id);
+        $registrations = $event->registrations()->with('employee')->get();
+
+        // Return export logic here
+        return response()->json(['message' => 'Export functionality coming soon']);
     }
 }

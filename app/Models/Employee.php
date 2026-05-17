@@ -206,4 +206,24 @@ class Employee extends Authenticatable implements CanResetPasswordContract
     {
         return ['id' => $this->id];
     }
+
+    /**
+     * Get the redirect route based on employee role
+     */
+    public function getDashboardRoute()
+    {
+        if ($this->force_password_change) {
+            return route('employee.password.change');
+        }
+
+        if ($this->hasRole('super_admin')) {
+            return route('admin.dashboard');
+        } elseif ($this->hasRole('regional_sports_secretary')) {
+            return route('admin.regional.dashboard');
+        } elseif ($this->hasRole('airport_sports_secretary')) {
+            return route('admin.airport.dashboard');
+        } else {
+            return route('employee.dashboard');
+        }
+    }
 }

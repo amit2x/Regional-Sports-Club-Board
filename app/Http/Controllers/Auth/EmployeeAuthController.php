@@ -15,18 +15,38 @@ class EmployeeAuthController extends Controller
 {
     /**
      * Where to redirect employees after login.
-     *
-     * @var string
      */
-    protected $redirectTo = '/employee/dashboard';
+    protected function redirectTo()
+    {
+        $employee = Auth::guard('employee')->user();
+
+        if (!$employee) {
+            return route('employee.login');
+        }
+
+        // Check if force password change is required
+        if ($employee->force_password_change) {
+            return route('employee.password.change');
+        }
+
+        // Redirect based on role
+        if ($employee->hasRole('super_admin')) {
+            return route('admin.dashboard');
+        } elseif ($employee->hasRole('regional_sports_secretary')) {
+            return route('admin.regional.dashboard');
+        } elseif ($employee->hasRole('airport_sports_secretary')) {
+            return route('admin.airport.dashboard');
+        } else {
+            return route('employee.dashboard');
+        }
+    }
 
     /**
      * Create a new controller instance.
-     *
-     * @return void
      */
     public function __construct()
     {
+        // Apply guest middleware to login-related methods
         $this->middleware('guest:employee')->except([
             'logout',
             'showChangePasswordForm',
@@ -39,6 +59,11 @@ class EmployeeAuthController extends Controller
      */
     public function showLoginForm()
     {
+        // If already logged in, redirect to dashboard
+        if (Auth::guard('employee')->check()) {
+            return redirect($this->redirectTo());
+        }
+
         return view('auth.employee-login');
     }
 
@@ -98,7 +123,9 @@ class EmployeeAuthController extends Controller
             'password' => $request->password,
         ];
 
-        if (Auth::guard('employee')->attempt($credentials, $request->filled('remember'))) {
+        $remember = $request->filled('remember');
+
+        if (Auth::guard('employee')->attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
             $employee = Auth::guard('employee')->user();
@@ -107,7 +134,10 @@ class EmployeeAuthController extends Controller
             activity()
                 ->performedOn($employee)
                 ->causedBy($employee)
-                ->withProperties(['ip' => $request->ip()])
+                ->withProperties([
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ])
                 ->log('logged in');
 
             // Check if force password change is required
@@ -117,28 +147,12 @@ class EmployeeAuthController extends Controller
             }
 
             // Redirect based on role
-            return $this->authenticated($request, $employee);
+            return redirect($this->redirectTo())->with('success', 'Welcome back, ' . $employee->name . '!');
         }
 
         return redirect()->back()
             ->withErrors(['password' => 'Invalid password. Please try again.'])
             ->withInput($request->except('password'));
-    }
-
-    /**
-     * Handle post-authentication redirect based on role.
-     */
-    protected function authenticated(Request $request, $employee)
-    {
-        if ($employee->hasRole('super_admin')) {
-            return redirect()->route('admin.dashboard');
-        } elseif ($employee->hasRole('regional_sports_secretary')) {
-            return redirect()->route('admin.regional.dashboard');
-        } elseif ($employee->hasRole('airport_sports_secretary')) {
-            return redirect()->route('admin.airport.dashboard');
-        } else {
-            return redirect()->route('employee.dashboard');
-        }
     }
 
     /**
@@ -164,7 +178,7 @@ class EmployeeAuthController extends Controller
                 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/',
             ],
         ], [
-            'new_password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character.',
+            'new_password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
             'new_password.confirmed' => 'Password confirmation does not match.',
         ]);
 
@@ -198,7 +212,8 @@ class EmployeeAuthController extends Controller
             ->causedBy($employee)
             ->log('changed password');
 
-        return redirect()->route('employee.dashboard')
+        // Redirect to appropriate dashboard
+        return redirect($this->redirectTo())
             ->with('success', 'Password changed successfully.');
     }
 
@@ -207,6 +222,11 @@ class EmployeeAuthController extends Controller
      */
     public function showForgotPasswordForm()
     {
+        // If already logged in, redirect to dashboard
+        if (Auth::guard('employee')->check()) {
+            return redirect($this->redirectTo());
+        }
+
         return view('auth.forgot-password');
     }
 
@@ -245,6 +265,11 @@ class EmployeeAuthController extends Controller
      */
     public function redirectToGoogle()
     {
+        // If already logged in, redirect to dashboard
+        if (Auth::guard('employee')->check()) {
+            return redirect($this->redirectTo());
+        }
+
         return Socialite::driver('google')->redirect();
     }
 
@@ -277,9 +302,12 @@ class EmployeeAuthController extends Controller
                 ->withProperties(['login_method' => 'google_oauth'])
                 ->log('logged in via Google');
 
-            return $this->authenticated(request(), $employee);
+            // Redirect based on role
+            return redirect($this->redirectTo())->with('success', 'Welcome back, ' . $employee->name . '!');
 
         } catch (\Exception $e) {
+            \Log::error('Google login error: ' . $e->getMessage());
+
             return redirect()->route('employee.login')
                 ->withErrors(['google' => 'Unable to login with Google. Please try again.']);
         }
@@ -305,7 +333,7 @@ class EmployeeAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')->with('success', 'You have been logged out successfully.');
     }
 
     /**
