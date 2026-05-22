@@ -34,7 +34,7 @@
             <p class="text-muted mt-3">No notifications</p>
         </div>
         @endforelse
-        {{ $notifications->links() }}
+        {{ $notifications->links('pagination::bootstrap-5') }}
     </div>
 </div>
 @endsection

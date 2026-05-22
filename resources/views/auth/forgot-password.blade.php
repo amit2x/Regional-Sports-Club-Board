@@ -7,7 +7,7 @@
     <div class="container py-5">
         <div class="row justify-content-center">
             <div class="col-md-5">
-                <a href="{{ route('employee.login') }}" class="text-white mb-3 d-inline-block">
+                <a href="{{ route('employee.login') }}" class="btn btn-outline-primary btn-sm mb-3 d-inline-block">
                     <i class="bi bi-arrow-left me-1"></i>Back to Login
                 </a>
                 <div class="password-card p-5">
@@ -56,10 +56,10 @@
 
 @push('styles')
 <style>
-    .password-page {
+    /* .password-page {
         min-height: 100vh;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
+    } */
     .password-card {
         background: rgba(255, 255, 255, 0.95);
         border-radius: 20px;

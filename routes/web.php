@@ -210,6 +210,16 @@ Route::middleware(['auth:employee', 'force.password.change', 'check.employee.sta
         Route::get('/registrations', [EventRegistrationController::class, 'myRegistrations'])->name('registrations.index');
         Route::get('/registrations/{id}', [EventRegistrationController::class, 'showRegistration'])->name('registrations.show');
         Route::post('/registrations/{id}/withdraw', [EventRegistrationController::class, 'withdrawRegistration'])->name('registrations.withdraw');
+        Route::get('/employee-profile', function() {
+            return view('employee.profile.show', ['employee' => auth()->guard('employee')->user()]);
+            })->name('profile.show');
+
+        /*
+    |--------------------------------------------------------------------------
+    | Notification Routes for employee specific
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/my-notifications', [NotificationController::class, 'index'])->name('notifications.index');
     });
 
     /*
@@ -217,13 +227,17 @@ Route::middleware(['auth:employee', 'force.password.change', 'check.employee.sta
     | Notification Routes
     |--------------------------------------------------------------------------
     */
+
+
+
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
-    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::delete('/notifications/{id}', [NotificationController::class, 'delete'])->name('notifications.delete');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::get('/notifications/latest', [NotificationController::class, 'latest'])->name('notifications.latest');
-    Route::get('/notifications/{id}/click', [NotificationController::class, 'handleClick'])->name('notifications.click');
+    Route::get('/notifications/{id}/click', [NotificationController::class, 'handleClick'])->name('notifications.handle-click');
+
 
     /*
     |--------------------------------------------------------------------------

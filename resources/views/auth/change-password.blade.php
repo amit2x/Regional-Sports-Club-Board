@@ -4,10 +4,6 @@
 
 @push('styles')
 <style>
-    .password-page {
-        min-height: 100vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
 
     .password-card {
         background: rgba(255, 255, 255, 0.95);
@@ -22,7 +18,7 @@
     <div class="container py-5">
         <div class="row justify-content-center">
             <div class="col-md-6">
-                <div class="password-card p-5">
+                <div class="password-card p-3">
                     <div class="text-center mb-4">
                         <i class="bi bi-shield-lock text-primary" style="font-size: 48px;"></i>
                         <h3 class="mt-3">Change Password</h3>

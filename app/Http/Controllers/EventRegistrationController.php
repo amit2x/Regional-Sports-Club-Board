@@ -1,16 +1,14 @@
 <?php
+// app/Http/Controllers/EventRegistrationController.php
 
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\EventRegistration;
-use App\Models\RegistrationDocument;
 use App\Services\EventEligibilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
 
 class EventRegistrationController extends Controller
@@ -74,7 +72,7 @@ class EventRegistrationController extends Controller
             ->where('event_id', $eventId)
             ->first();
 
-        if ($existingRegistration && $existingRegistration->status !== 'withdrawn') {
+        if ($existingRegistration && !in_array($existingRegistration->status, ['withdrawn'])) {
             return redirect()->route('employee.registrations.show', $existingRegistration->id)
                 ->with('info', 'You have already registered for this event.');
         }
@@ -130,79 +128,23 @@ class EventRegistrationController extends Controller
             ], 403);
         }
 
-        // Validate form data based on template validation rules
-        $validationRules = [];
-        if ($event->formTemplate && $event->formTemplate->validation_rules) {
-            $validationRules = $event->formTemplate->validation_rules;
-        }
-
-        // Add document validation
-        if ($event->required_documents) {
-            foreach ($event->required_documents as $docType) {
-                $validationRules["documents.{$docType}"] = 'required|file|mimes:pdf,jpg,jpeg,png|max:5120';
-            }
-        }
-
-        $validator = Validator::make($request->all(), $validationRules);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         DB::beginTransaction();
         try {
-            // Check for existing draft
-            $registration = EventRegistration::where('employee_id', $employee->id)
-                ->where('event_id', $eventId)
-                ->where('status', 'draft')
-                ->first();
+            // Create new registration
+            $registration = EventRegistration::create([
+                'registration_number' => EventRegistration::generateRegistrationNumber(),
+                'event_id' => $eventId,
+                'employee_id' => $employee->id,
+                'status' => $request->input('submit_type') === 'submit' ? 'pending' : 'draft',
+                'form_data' => $request->except(['documents', '_token', 'submit_type']),
+            ]);
 
-            if (!$registration) {
-                // Create new registration
-                $registration = EventRegistration::create([
-                    'registration_number' => EventRegistration::generateRegistrationNumber(),
-                    'event_id' => $eventId,
-                    'employee_id' => $employee->id,
-                    'status' => 'draft',
-                    'form_data' => [],
-                ]);
-            }
-
-            // Save form data
-            $formData = $request->except(['documents', '_token']);
-            $registration->form_data = $formData;
-
-            // If submitting (not saving draft)
-            if ($request->input('submit_type') === 'submit') {
-                $registration->status = 'pending';
-            }
-
-            $registration->save();
-
-            // Upload documents
+            // Handle document uploads
             if ($request->hasFile('documents')) {
                 foreach ($request->file('documents') as $docType => $file) {
-                    // Delete existing document of same type
-                    $existingDoc = $registration->documents()
-                        ->where('document_type', $docType)
-                        ->first();
+                    $filePath = $file->store("registrations/{$registration->id}/documents", 'public');
 
-                    if ($existingDoc) {
-                        Storage::disk('public')->delete($existingDoc->file_path);
-                        $existingDoc->delete();
-                    }
-
-                    // Store new document
-                    $filePath = $file->store(
-                        "registrations/{$registration->id}/documents",
-                        'public'
-                    );
-
-                    RegistrationDocument::create([
-                        'event_registration_id' => $registration->id,
+                    $registration->documents()->create([
                         'document_type' => $docType,
                         'document_name' => $file->getClientOriginalName(),
                         'file_path' => $filePath,
@@ -213,20 +155,9 @@ class EventRegistrationController extends Controller
                 }
             }
 
-            // Update documents verification status
-            if ($request->input('submit_type') === 'submit') {
-                $registration->documents_verified = false;
-                $registration->save();
-            }
-
-            // Log activity
             activity()
                 ->performedOn($registration)
                 ->causedBy($employee)
-                ->withProperties([
-                    'event_id' => $eventId,
-                    'action' => $request->input('submit_type')
-                ])
                 ->log($request->input('submit_type') === 'submit' ? 'submitted registration' : 'saved draft');
 
             DB::commit();
@@ -252,17 +183,19 @@ class EventRegistrationController extends Controller
     }
 
     /**
-     * View my registrations
+     * View my registrations - FIXED to pass $registrations variable
      */
     public function myRegistrations(Request $request)
     {
         $employee = auth()->guard('employee')->user();
 
-        if ($request->ajax()) {
-            $registrations = EventRegistration::with(['event'])
-                ->where('employee_id', $employee->id)
-                ->latest();
+        // Get registrations directly as collection
+        $registrations = EventRegistration::with(['event', 'documents'])
+            ->where('employee_id', $employee->id)
+            ->latest()
+            ->get();
 
+        if ($request->ajax()) {
             return DataTables::of($registrations)
                 ->addColumn('event_name', function($reg) {
                     return $reg->event ? $reg->event->event_name : 'N/A';
@@ -300,14 +233,13 @@ class EventRegistrationController extends Controller
 
                     if ($reg->status === 'draft') {
                         $actions .= '<a href="' . route('employee.events.register', $reg->event_id) . '"
-                                    class="btn btn-sm btn-primary" title="Continue Registration">
+                                    class="btn btn-sm btn-primary" title="Continue">
                                     <i class="bi bi-pencil"></i></a>';
                     }
 
                     if (in_array($reg->status, ['draft', 'pending'])) {
                         $actions .= '<button class="btn btn-sm btn-danger withdraw-registration"
-                                    data-id="' . $reg->id . '"
-                                    title="Withdraw">
+                                    data-id="' . $reg->id . '" title="Withdraw">
                                     <i class="bi bi-x-circle"></i></button>';
                     }
 
@@ -319,14 +251,15 @@ class EventRegistrationController extends Controller
         }
 
         $stats = [
-            'total' => EventRegistration::where('employee_id', $employee->id)->count(),
-            'draft' => EventRegistration::where('employee_id', $employee->id)->where('status', 'draft')->count(),
-            'pending' => EventRegistration::where('employee_id', $employee->id)->where('status', 'pending')->count(),
-            'approved' => EventRegistration::where('employee_id', $employee->id)->where('status', 'approved')->count(),
-            'rejected' => EventRegistration::where('employee_id', $employee->id)->where('status', 'rejected')->count(),
+            'total' => $registrations->count(),
+            'draft' => $registrations->where('status', 'draft')->count(),
+            'pending' => $registrations->where('status', 'pending')->count(),
+            'approved' => $registrations->where('status', 'approved')->count(),
+            'rejected' => $registrations->where('status', 'rejected')->count(),
+            'withdrawn' => $registrations->where('status', 'withdrawn')->count(),
         ];
 
-        return view('employee.registrations.index', compact('stats'));
+        return view('employee.registrations.index', compact('registrations', 'stats'));
     }
 
     /**
@@ -359,7 +292,6 @@ class EventRegistrationController extends Controller
     {
         $registration = EventRegistration::findOrFail($id);
 
-        // Check if employee owns this registration
         if ($registration->employee_id !== auth()->guard('employee')->id()) {
             return response()->json([
                 'success' => false,
@@ -367,7 +299,6 @@ class EventRegistrationController extends Controller
             ], 403);
         }
 
-        // Can only withdraw draft or pending registrations
         if (!in_array($registration->status, ['draft', 'pending'])) {
             return response()->json([
                 'success' => false,

@@ -5,14 +5,8 @@
 
 @push('styles')
 <style>
-    .login-page {
-        min-height: 100vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
 
-    .login-container {
-        min-height: 100vh;
-    }
+
 
     .login-card {
         background: rgba(255, 255, 255, 0.95);
@@ -124,7 +118,7 @@
             {{-- Back to Home --}}
             <div class="row justify-content-center mb-3">
                 <div class="col-md-5">
-                    <a href="{{ url('/') }}" class="back-to-home">
+                    <a href="{{ url('/') }}" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-arrow-left me-2"></i>Back to Home
                     </a>
                 </div>
@@ -132,7 +126,7 @@
 
             <div class="row justify-content-center">
                 <div class="col-md-5">
-                    <div class="login-card p-5">
+                    <div class="login-card p-4">
                         {{-- Logo and Title --}}
                         <div class="text-center mb-4">
                             <img src="{{ asset('images/logo.png') }}"
@@ -264,13 +258,6 @@
                                 </a>
                             </div>
                         </form>
-                    </div>
-
-                    <div class="text-center mt-4 text-white">
-                        <small>
-                            <i class="bi bi-shield-check me-1"></i>
-                            &copy; {{ date('Y') }} Regional Sports Control Board. All rights reserved.
-                        </small>
                     </div>
                 </div>
             </div>
