@@ -1,24 +1,24 @@
 <?php
 // routes/web.php (Complete file)
 
-use App\Http\Controllers\WebsiteController;
-use App\Http\Controllers\StaticPageController;
-
-use App\Http\Controllers\Auth\EmployeeAuthController;
+use App\Http\Controllers\Admin\AirportController;
+use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\FormBuilderController;
-use App\Http\Controllers\Admin\RegionController;
-use App\Http\Controllers\Admin\AirportController;
-use App\Http\Controllers\Admin\ReportController;
-use App\Http\Controllers\Admin\CertificateController;
-use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\GalleryController;
-use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\EventRegistrationController;
+use App\Http\Controllers\Admin\RegionController;
 use App\Http\Controllers\Admin\RegistrationApprovalController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Auth\EmployeeAuthController;
+use App\Http\Controllers\EventRegistrationController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\StaticPageController;
+use App\Http\Controllers\UserManualController;
+use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -249,6 +249,12 @@ Route::middleware(['auth:employee', 'force.password.change', 'check.employee.sta
     })->name('profile.show');
     Route::put('/profile', [EmployeeAuthController::class, 'updateProfile'])->name('profile.update');
 });
+
+
+// User Manual Routes
+Route::get('/manual', [UserManualController::class, 'index'])->name('manual');
+Route::get('/manual/{section}', [UserManualController::class, 'section'])->name('manual.section');
+Route::get('/manual/download/pdf', [UserManualController::class, 'downloadPdf'])->name('manual.download');
 
 /*
 |--------------------------------------------------------------------------

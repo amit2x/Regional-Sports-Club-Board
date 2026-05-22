@@ -27,6 +27,7 @@
                 <h6 class="text-white mb-3 fw-bold">Resources</h6>
                 <ul class="list-unstyled">
                     <li class="mb-2"><a href="{{ route('website.downloads') }}" class="footer-link"><i class="bi bi-chevron-right me-1 small"></i>Downloads</a></li>
+                    <li class="mb-2"><a href="{{ route('manual') }}" class="footer-link"><i class="bi bi-book me-1 small"></i>User Manual</a></li
                     <li class="mb-2"><a href="{{ route('website.faq') }}" class="footer-link"><i class="bi bi-chevron-right me-1 small"></i>FAQ</a></li>
                     <li class="mb-2"><a href="{{ route('website.help') }}" class="footer-link"><i class="bi bi-chevron-right me-1 small"></i>Help Center</a></li>
                     <li class="mb-2"><a href="{{ route('website.about') }}" class="footer-link"><i class="bi bi-chevron-right me-1 small"></i>About Us</a></li>

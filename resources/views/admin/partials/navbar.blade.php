@@ -66,6 +66,8 @@
                         <i class="bi bi-key"></i> Change Password
                     </a>
                     <div class="dropdown-divider"></div>
+                    <a href=" {{ route('manual') }}" class="dropdown-item"> <i class="bi bi-book"></i> Manual</a>
+                    <div class="dropdown-divider"></div>
                     <form method="POST" action="{{ route('employee.logout') }}">
                         @csrf
                         <button type="submit" class="dropdown-item text-danger">

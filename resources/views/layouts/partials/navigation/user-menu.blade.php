@@ -10,7 +10,7 @@
     <a class="btn btn-outline-primary btn-sm px-2 py-1 text-nowrap me-1" href="{{ $dashboardRoute }}">
         <i class="bi bi-speedometer2 me-1"></i> Dashboard
     </a>
-
+    @hasrole('employee')
     <a class="btn btn-sm btn-outline-warning px-2 py-1 text-nowrap me-1 {{ request()->routeIs('employee.events*') ? 'active' : '' }}" href="{{ route('employee.events.available') }}">
         <i class="bi bi-calendar-check me-1"></i> My Events
     </a>
@@ -18,6 +18,7 @@
     <a class="btn btn-sm btn-outline-info px-2 py-1 text-nowrap {{ request()->routeIs('employee.registrations*') ? 'active' : '' }}" href="{{ route('employee.registrations.index') }}">
         <i class="bi bi-clipboard-check me-1"></i> Registrations
     </a>
+    @endhasrole
 </li>
 
 <li class="nav-item dropdown ms-2">
@@ -37,9 +38,18 @@
             <strong class="d-block">{{ $user->email }}</strong>
         </li>
         <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ route('employee.profile.show') }}"><i class="bi bi-person me-2"></i> My Profile</a></li>
-        <li><a class="dropdown-item" href="{{ route('employee.notifications.index') }}"><i class="bi bi-bell me-2"></i> Notifications</a></li>
-        <li><a class="dropdown-item" href="{{ route('employee.password.change') }}"><i class="bi bi-key me-2"></i> Change Password</a></li>
+        @hasrole('employee')
+            <li><a class="dropdown-item" href="{{ route('employee.profile.show') }}"><i class="bi bi-person me-2"></i> My Profile</a></li>
+            <li><a class="dropdown-item" href="{{ route('employee.notifications.index') }}"><i class="bi bi-bell me-2"></i> Notifications</a></li>
+            <li><a class="dropdown-item" href="{{ route('employee.password.change') }}"><i class="bi bi-key me-2"></i> Change Password</a></li>
+        @endhasrole
+
+        @hasanyrole('regional_sports_secretary|airport_sports_secretary|super_admin')
+            <li><a class="dropdown-item" href="{{ route('profile.show') }}"><i class="bi bi-person me-2"></i> My Profile</a></li>
+            <li><a class="dropdown-item" href="{{ route('notifications.index') }}"><i class="bi bi-bell me-2"></i> Notifications</a></li>
+            <li><a class="dropdown-item" href="{{ route('password.change') }}"><i class="bi bi-key me-2"></i> Change Password</a></li>
+
+        @endhasanyrole
         <li><hr class="dropdown-divider"></li>
         <li>
             <form action="{{ route('employee.logout') }}" method="POST">
