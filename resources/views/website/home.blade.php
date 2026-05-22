@@ -7,14 +7,14 @@
 {{-- Hero Section --}}
 <section class="hero-section">
     <div class="container">
-        <div class="row align-items-center">
+        <div class="row align-items-center position-relative" style="z-index: 2;">
             <div class="col-lg-7">
                 <h1 class="hero-title">Regional Sports Control Board</h1>
                 <p class="hero-subtitle">
                     Empowering airport employees through sports and fitness.
                     Participate, compete, and excel in regional sports events.
                 </p>
-                <div class="d-flex flex-wrap gap-3">
+                <div class="d-flex flex-wrap gap-3 position-relative" style="z-index: 3;">
                     <a href="{{ route('website.events') }}" class="btn btn-light btn-lg rounded-pill px-4">
                         <i class="bi bi-calendar-event me-2"></i>View Events
                     </a>
@@ -23,11 +23,31 @@
                     </a>
                 </div>
             </div>
-            <div class="col-lg-5 text-center d-none d-lg-block">
+            {{-- <div class="col-lg-5 text-center d-none d-lg-block">
                 <div class="hero-image-fallback">
                     <i class="bi bi-trophy-fill" style="font-size: 120px; opacity: 0.5;"></i>
                 </div>
-            </div>
+            </div> --}}
+
+            <div class="col-lg-5 text-center d-none d-lg-block">
+
+    @php
+        $heroImage = public_path('/images/hero-image.png');
+    @endphp
+
+    @if(file_exists($heroImage))
+        <img
+            src="{{ asset('images/hero-image.png') }}"
+            alt="Hero Image"
+            class="img-fluid hero-image"
+        >
+    @else
+        <div class="hero-image-fallback">
+            <i class="bi bi-trophy-fill" style="font-size: 120px; opacity: 0.5;"></i>
+        </div>
+    @endif
+
+</div>
         </div>
     </div>
 </section>
